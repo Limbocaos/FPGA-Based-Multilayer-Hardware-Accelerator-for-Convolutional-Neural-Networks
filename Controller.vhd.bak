@@ -1,0 +1,91 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity Controller is
+    port (
+        clk        : in  std_logic;
+        reset      : in  std_logic;
+        start      : in  std_logic;
+        stride     : in  integer range 1 to 4;  -- Stride configurable
+        padding    : in  integer range 0 to 2;  -- Padding (en píxeles)
+        -- Señales de control para los módulos
+        lb_we      : out std_logic;  -- Write enable LineBuffer
+        wr_update  : out std_logic;  -- Update WindowRegister
+        conv_start : out std_logic;  -- Iniciar ConvolutionBlock
+        conv_done  : in  std_logic;  -- Fin de ConvolutionBlock
+        ob_we      : out std_logic;  -- Write enable OutputBuffer
+        finished   : out std_logic   -- Señal global de fin
+    );
+end entity;
+
+architecture Behavioral of Controller is
+    type state_type is (IDLE, LOAD_PIX, SHIFT_WINDOW, COMPUTE_CONV, WRITE_OUT, DONE);
+    signal state    : state_type := IDLE;
+    signal pixel_ct : integer := 0;    -- Contador de píxeles en la línea
+    signal line_ct  : integer := 0;    -- Contador de líneas procesadas
+begin
+
+    process(clk)
+    begin
+        if rising_edge(clk) then
+            if reset = '1' then
+                state      <= IDLE;
+                lb_we      <= '0';
+                wr_update  <= '0';
+                conv_start <= '0';
+                ob_we      <= '0';
+                finished   <= '0';
+                pixel_ct   <= 0;
+                line_ct    <= 0;
+            else
+                case state is
+                    when IDLE =>
+                        if start = '1' then
+                            state <= LOAD_PIX;
+                        end if;
+
+                    when LOAD_PIX =>
+                        -- Habilita escritura en LineBuffer para recibir píxel
+                        lb_we <= '1';
+                        -- Una vez que tenemos suficientes líneas para formar KxK, pasamos a SHIFT_WINDOW
+                        if pixel_ct = WIDTH-1 then
+                            state <= SHIFT_WINDOW;
+                        else
+                            pixel_ct <= pixel_ct + 1;
+                        end if;
+
+                    when SHIFT_WINDOW =>
+                        lb_we     <= '0';
+                        wr_update <= '1';  -- Indicar a WindowRegister que actualice la ventana
+                        state     <= COMPUTE_CONV;
+
+                    when COMPUTE_CONV =>
+                        wr_update  <= '0';
+                        conv_start <= '1';
+                        if conv_done = '1' then
+                            conv_start <= '0';
+                            state      <= WRITE_OUT;
+                        end if;
+
+                    when WRITE_OUT =>
+                        ob_we <= '1';  
+                        -- Después de escribir el píxel de salida, avanzamos al siguiente
+                        ob_we <= '0';
+                        -- Si terminamos la línea (ajustado por stride), volver a SHIFT_WINDOW o IDLE
+                        if pixel_ct >= WIDTH-1 then
+                            state <= DONE;
+                        else
+                            pixel_ct <= pixel_ct + stride;
+                            state    <= SHIFT_WINDOW;
+                        end if;
+
+                    when DONE =>
+                        finished <= '1';
+                        state    <= IDLE;
+                end case;
+            end if;
+        end if;
+    end process;
+
+end architecture;

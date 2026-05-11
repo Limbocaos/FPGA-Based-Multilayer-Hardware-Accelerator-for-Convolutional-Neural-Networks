@@ -1,0 +1,378 @@
+m255
+K4
+z2
+!s12c _opt
+Z0 !s99 nomlopt
+!s11e vcom 2023.3 2023.07, Jul 17 2023
+13
+!s112 1.1
+!i10d 8192
+!i10e 25
+!i10f 100
+cModel Technology
+Z1 dC:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/simulation/questa
+T_opt
+!s110 1755989102
+VN^6zab3mi[XLhAHbJ3HN_1
+04 8 10 work try_2_tb behavioral 1
+=1-9c6b000040ca-68aa446d-3df-6410
+R0
+!s12b OEM100
+!s124 OEM10U11 
+o-quiet -auto_acc_if_foreign -work work -L altera -L lpm -L sgate -L altera_mf -L altera_lnsim -L cycloneiv_hssi -L cycloneiv_pcie_hip -L cycloneiv -L rtl_work -L work +acc
+tCvgOpt 0
+n@_opt
+OL;O;2023.3;77
+Eactivationfunction
+Z2 w1755986178
+Z3 DPx4 ieee 11 numeric_std 0 22 F8@]:i<mFK7<TjIzKcTGi0
+Z4 DPx3 std 6 textio 0 22 LS[?81n5ZHWBI9JkBZTV<2
+Z5 DPx4 ieee 14 std_logic_1164 0 22 6<US`=mgl_dFdCEFF7J=m1
+!i122 5
+R1
+Z6 8C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/ActivationFunction.vhd
+Z7 FC:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/ActivationFunction.vhd
+l0
+L6 1
+Va?n`gn[LgoO?i>9mNonf;3
+!s100 amPY5CngV>>9BS1W0n@=92
+Z8 OL;C;2023.3;77
+31
+Z9 !s110 1755989101
+!i10b 1
+Z10 !s108 1755989100.000000
+Z11 !s90 -reportprogress|300|-93|-work|work|C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/ActivationFunction.vhd|
+Z12 !s107 C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/ActivationFunction.vhd|
+!i113 0
+Z13 o-93 -work work
+Z14 tExplicit 1 CvgOpt 0
+Abehavioral
+R3
+R4
+R5
+Z15 DEx4 work 18 activationfunction 0 22 a?n`gn[LgoO?i>9mNonf;3
+!i122 5
+l23
+L21 42
+V>FjVDB?en`_1hXT^iGE?03
+!s100 RA=8C>0n=AmHeY6BAM2W]1
+R8
+31
+R9
+!i10b 1
+R10
+R11
+R12
+!i113 0
+R13
+R14
+Econtroller
+Z16 w1755984221
+R3
+R4
+R5
+!i122 4
+R1
+Z17 8C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/Controller.vhd
+Z18 FC:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/Controller.vhd
+l0
+L5 1
+V=4EM1oP6WSHD?]c:_fjaC0
+!s100 Qe?_Te7k19dEVnz>be:>l3
+R8
+31
+Z19 !s110 1755989100
+!i10b 1
+R10
+Z20 !s90 -reportprogress|300|-93|-work|work|C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/Controller.vhd|
+Z21 !s107 C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/Controller.vhd|
+!i113 0
+R13
+R14
+Abehavioral
+R3
+R4
+R5
+Z22 DEx4 work 10 controller 0 22 =4EM1oP6WSHD?]c:_fjaC0
+!i122 4
+l36
+L28 97
+Vf<PjFRLa``TS2kh>jO1ce0
+!s100 EQP5:GX@nlXbA5Am1?ShW1
+R8
+31
+R19
+!i10b 1
+R10
+R20
+R21
+!i113 0
+R13
+R14
+Econvolutionblock
+Z23 w1755986201
+R3
+R4
+R5
+!i122 3
+R1
+Z24 8C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/ConvolutionBlock.vhd
+Z25 FC:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/ConvolutionBlock.vhd
+l0
+L6 1
+VA5L?7C2?z6ejdX^?=e?`:3
+!s100 lO18ZEModY@nh9c4?8^1O1
+R8
+31
+R19
+!i10b 1
+R10
+Z26 !s90 -reportprogress|300|-93|-work|work|C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/ConvolutionBlock.vhd|
+Z27 !s107 C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/ConvolutionBlock.vhd|
+!i113 0
+R13
+R14
+Abehavioral
+R3
+R4
+R5
+Z28 DEx4 work 16 convolutionblock 0 22 A5L?7C2?z6ejdX^?=e?`:3
+!i122 3
+l71
+L35 202
+V3OA<?EbgZj;7_ElF?UA`V1
+!s100 f^GSCj5VCFb1IhW2GkPg<1
+R8
+31
+R19
+!i10b 1
+R10
+R26
+R27
+!i113 0
+R13
+R14
+Efiltermemory
+Z29 w1755986206
+R3
+R4
+R5
+!i122 2
+R1
+Z30 8C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/FilterMemory.vhd
+Z31 FC:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/FilterMemory.vhd
+l0
+L5 1
+V6M5c:X3@>Df78X6E_hb813
+!s100 Tm7:HF8GOJM=i=VnjA@T`3
+R8
+31
+R19
+!i10b 1
+R10
+Z32 !s90 -reportprogress|300|-93|-work|work|C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/FilterMemory.vhd|
+Z33 !s107 C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/FilterMemory.vhd|
+!i113 0
+R13
+R14
+Abehavioral
+R3
+R4
+R5
+Z34 DEx4 work 12 filtermemory 0 22 6M5c:X3@>Df78X6E_hb813
+!i122 2
+l115
+L21 155
+V6JDj`2j?Ce?o9S6]4TFQb1
+!s100 c=9>II9i[[Yc2>_VV1V662
+R8
+31
+R19
+!i10b 1
+R10
+R32
+R33
+!i113 0
+R13
+R14
+Elinebuffer
+Z35 w1755828218
+R3
+R4
+R5
+!i122 0
+R1
+Z36 8C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/LineBuffer.vhd
+Z37 FC:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/LineBuffer.vhd
+l0
+L5 1
+Vjl<6aa]3PWKQDEY[mF7891
+!s100 KJTHSOgeW>l6AmnRnYdO71
+R8
+31
+R19
+!i10b 1
+R10
+Z38 !s90 -reportprogress|300|-93|-work|work|C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/LineBuffer.vhd|
+Z39 !s107 C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/LineBuffer.vhd|
+!i113 0
+R13
+R14
+Abehavioral
+R3
+R4
+R5
+Z40 DEx4 work 10 linebuffer 0 22 jl<6aa]3PWKQDEY[mF7891
+!i122 0
+l36
+L19 42
+Vgf3^?^B]>nJVG2l2O^mIB0
+!s100 nHW06KXekYOXY3:TZT2k]1
+R8
+31
+R19
+!i10b 1
+R10
+R38
+R39
+!i113 0
+R13
+R14
+Etop_convolution
+Z41 w1755986216
+R3
+R4
+R5
+!i122 6
+R1
+Z42 8C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/top_convolution.vhd
+Z43 FC:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/top_convolution.vhd
+l0
+L5 1
+Vf]TmZl7=J@07_e^aX`L7^1
+!s100 VLcS`jCKBX]anXD1mdD?n0
+R8
+31
+R9
+!i10b 1
+Z44 !s108 1755989101.000000
+Z45 !s90 -reportprogress|300|-93|-work|work|C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/top_convolution.vhd|
+Z46 !s107 C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/top_convolution.vhd|
+!i113 0
+R13
+R14
+Astructural
+R22
+R15
+R28
+R34
+Z47 DEx4 work 14 windowregister 0 22 KSg2V3GV[zD7XCRmaAi071
+R40
+R3
+R4
+R5
+Z48 DEx4 work 15 top_convolution 0 22 f]TmZl7=J@07_e^aX`L7^1
+!i122 6
+l81
+L37 275
+Vi9]dWzb`kH<hYMHLSWenC1
+!s100 MUC4GibK_AjdWd66N=ERN1
+R8
+31
+R9
+!i10b 1
+R44
+R45
+R46
+!i113 0
+R13
+R14
+Etry_2_tb
+Z49 w1755986189
+Z50 DPx4 ieee 16 std_logic_textio 0 22 C8j>g0lzF^EAA]5<S6PY32
+R3
+R4
+R5
+!i122 7
+R1
+Z51 8C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/Try_2_TB.vhd
+Z52 FC:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/Try_2_TB.vhd
+l0
+L7 1
+VFM^m^Z^B2^T]j5`eaoYJ_2
+!s100 KW_DzB:HblKBHH]VPk]?<3
+R8
+31
+R9
+!i10b 1
+R44
+Z53 !s90 -reportprogress|300|-93|-work|work|C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/Try_2_TB.vhd|
+Z54 !s107 C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/Try_2_TB.vhd|
+!i113 0
+R13
+R14
+Abehavioral
+R48
+R50
+R3
+R4
+R5
+DEx4 work 8 try_2_tb 0 22 FM^m^Z^B2^T]j5`eaoYJ_2
+!i122 7
+l40
+L10 207
+V13mDiYYL:nHT5GZH?9=R92
+!s100 K[kz[RZ:8TT_LlGWYmC5o1
+R8
+31
+R9
+!i10b 1
+R44
+R53
+R54
+!i113 0
+R13
+R14
+Ewindowregister
+Z55 w1755984190
+R3
+R4
+R5
+!i122 1
+R1
+Z56 8C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/WindowRegister.vhd
+Z57 FC:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/WindowRegister.vhd
+l0
+L5 1
+VKSg2V3GV[zD7XCRmaAi071
+!s100 BBN35@KXJ721Y2cF1WAWJ3
+R8
+31
+R19
+!i10b 1
+R10
+Z58 !s90 -reportprogress|300|-93|-work|work|C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/WindowRegister.vhd|
+Z59 !s107 C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/WindowRegister.vhd|
+!i113 0
+R13
+R14
+Abehavioral
+R3
+R4
+R5
+R47
+!i122 1
+l29
+L22 124
+VM>_[nFigYTf1RfKal_aTb0
+!s100 f<E;2UT_o1mHOVULNUiEK2
+R8
+31
+R19
+!i10b 1
+R10
+R58
+R59
+!i113 0
+R13
+R14

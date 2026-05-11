@@ -1,0 +1,118 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity ConvolutionBlock is
+    generic (
+        K      : integer := 3;    -- Tamaño del kernel
+        F      : integer := 16;   -- Número de filtros
+        BITS   : integer := 8;    -- Bits por píxel
+        COEFFW : integer := 8;    -- Bits por coeficiente
+        OUTW   : integer := 16    -- Bits de salida por píxel convolucionado
+    );
+    port (
+        clk         : in  std_logic;
+        reset       : in  std_logic;
+        window_in   : in  std_logic_vector((K*K*BITS)-1 downto 0);
+        coeffs_in   : in  std_logic_vector((F*K*K*COEFFW)-1 downto 0);
+        start       : in  std_logic;  -- Señal para iniciar la operación
+        done        : out std_logic;  -- Señal que indica fin de la convolución (por píxel)
+        pixel_out   : out std_logic_vector((F*OUTW)-1 downto 0)
+    );
+end entity;
+
+architecture Behavioral of ConvolutionBlock is
+
+    -- Cantidad de multiplicadores por filtro = K*K
+    constant P : integer := K*K;
+
+    -- Tipo para almacenar un vector de productos parciales
+    type product_array is array (0 to P-1) of signed((COEFFW+BITS)-1 downto 0);
+    type sum_array     is array (0 to P-2) of signed((COEFFW+BITS+log2ceil(P))-1 downto 0);
+
+    -- Señales internas
+    signal pixels   : array (0 to P-1) of signed(BITS-1 downto 0);
+    signal coeffs   : array (0 to P-1) of signed(COEFFW-1 downto 0);
+    signal products : product_array;
+    signal sums     : sum_array;
+    signal acc      : signed(OUTW-1 downto 0);
+
+    -- Para manejar F filtros, replicamos la lógica P veces por filtro (paralelismo en filtros)
+    -- En este ejemplo ilustrativo consideraremos F=1; para F>1, replicarías este bloque F veces
+begin
+
+    ------------------------------------------------------------------------
+    -- Extraer pixeles de window_in
+    ------------------------------------------------------------------------
+    extract_pixels: for i in 0 to P-1 generate
+        begin
+            pixels(i) <= signed(window_in((i+1)*BITS-1 downto i*BITS));
+    end generate;
+
+    ------------------------------------------------------------------------
+    -- Extraer coeficientes del filtro 0 (ejemplo; si F>1, indexar según control)
+    ------------------------------------------------------------------------
+    extract_coeffs: for i in 0 to P-1 generate
+        begin
+            coeffs(i) <= signed(coeffs_in((i+1)*COEFFW-1 downto i*COEFFW));
+    end generate;
+
+    ------------------------------------------------------------------------
+    -- Módulo de multiplicación paralela (P multiplicadores)
+    ------------------------------------------------------------------------
+    mult_proc: process(clk)
+    begin
+        if rising_edge(clk) then
+            if reset = '1' then
+                for i in 0 to P-1 loop
+                    products(i) <= (others => '0');
+                end loop;
+            elsif start = '1' then
+                for i in 0 to P-1 loop
+                    products(i) <= pixels(i) * coeffs(i);
+                end loop;
+            end if;
+        end if;
+    end process;
+
+    ------------------------------------------------------------------------
+    -- Sumar todos los productos: un árbol de sumadores en etapas
+    ------------------------------------------------------------------------
+    sum_tree: process(clk)
+        variable stage_products : product_array := (others => (others => '0'));
+        variable temp_sums      : sum_array     := (others => (others => '0'));
+        variable total_sum      : signed(OUTW-1 downto 0);
+    begin
+        if rising_edge(clk) then
+            if reset = '1' then
+                acc <= (others => '0');
+                done <= '0';
+            elsif start = '1' then
+                -- Primer nivel: copiar products a stage_products
+                for i in 0 to P-1 loop
+                    stage_products(i) := products(i);
+                end loop;
+
+                -- Ejemplo simple de sum-tree: sumar en pares, luego reducir
+                -- Esto sólo ilustra la idea; en síntesis automatizada, Quartus agrupa adder trees.
+                for i in 0 to P/2-1 loop
+                    temp_sums(i) := stage_products(2*i) + stage_products(2*i+1);
+                end loop;
+                -- Continuar hasta obtener un sumatorio final...
+                -- Finalmente:
+                total_sum := resize(temp_sums(0), OUTW);
+                acc <= total_sum;
+                done <= '1';
+            else
+                done <= '0';
+            end if;
+        end if;
+    end process;
+
+    ------------------------------------------------------------------------
+    -- Salida: empaquetar el resultado para cada filtro (aquí solo 1 filtro)
+    ------------------------------------------------------------------------
+    pixel_out <= std_logic_vector(acc) & (others => '0'); 
+    -- Si F>1, concatenar salidas de cada filtro
+
+end architecture;

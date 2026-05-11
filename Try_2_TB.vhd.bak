@@ -1,0 +1,79 @@
+library IEEE;
+use ieee.std_logic_1164.all;
+use IEEE.NUMERIC_STD.ALL;
+use IEEE.STD_LOGIC_TEXTIO.ALL;
+use STD.TEXTIO.ALL; -- Librería para manejo de archivos
+
+entity Try_2_TB is
+end Try_2_TB;
+
+architecture Behavioral of Try_2_TB is
+    -- Archivos de entrada y salida
+    file input_file   : TEXT open read_mode is "C:\Users\Farab\Documents\Maestria\Tesis\Archivos VHDL\Try 2\R.txt"; -- Lee archivo 
+    file output_file  : TEXT open write_mode is "C:\Users\Farab\Documents\Maestria\Tesis\Archivos VHDL\Try 2\Salida.txt";  -- Escribe archivo
+
+    -- Señales para DUT
+    signal clk : STD_LOGIC := '0';
+    signal reset : STD_LOGIC := '1';
+    signal img_in : std_LOGIC_VECTOR(8 downto 0) := (others => '0');
+    signal img_out : std_LOGIC_VECTOR(17 downto 0) := (others => '0');
+	 
+begin
+    -- Instancia del diseño bajo prueba (DUT)
+    UUT :entity work.Line_Buffer
+        Port map ( clk => clk,
+                   reset => reset,
+                   img_in => img_in,
+                   img_out => img_out);
+	 
+    -- Generador de reloj
+    clk_gen: process 
+    begin
+        while true loop
+            clk <= not clk;
+            wait for 10 ns;
+        end loop;
+    end process;
+
+    -- Proceso principal de prueba
+    stimulus: process 
+        -- Declarar las variables dentro del proceso
+        variable line_in  : line;
+        variable line_out : line;
+        variable temp_in : std_logic_vector(8 downto 0);
+        variable temp_out : std_logic_vector(17 downto 0);
+    begin
+        -- Reiniciar DUT
+        reset <= '1';
+        wait for 20 ns;
+        reset <= '0';
+
+        -- Leer datos desde el archivo
+        while not endfile(input_file) loop
+            -- Leer una línea del archivo
+            readline(input_file, line_in);
+            -- Convertir la línea leída a bit_vector
+            read(line_in, temp_in);
+
+            -- Mostrar el valor leído en la consola
+            report "Valor leído del archivo de entrada: " ;
+
+            -- Asignar valores a las señales
+            img_in <= (temp_in);
+
+            -- Esperar un ciclo de reloj
+            wait for 20 ns;
+
+            -- Leer la salida del DUT y escribirla en el archivo
+            temp_out := (img_out);
+            write(line_out, temp_out);
+            writeline(output_file, line_out);
+
+            -- Mostrar el valor escrito en la consola
+            report "Valor escrito al archivo de salida: " ;
+        end loop;
+
+        -- Finalizar simulación
+        wait;
+    end process;
+end Behavioral;

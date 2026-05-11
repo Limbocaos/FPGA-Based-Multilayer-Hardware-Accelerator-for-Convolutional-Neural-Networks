@@ -1,0 +1,151 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity top_convolution is
+    generic (
+        WIDTH : integer := 1920;  -- Ancho de la imagen en píxeles
+        HEIGHT: integer := 1080;  -- Alto de la imagen (para contar líneas)
+        K     : integer := 3;     -- Tamaño del kernel
+        F     : integer := 16;    -- Número de filtros
+        BITS  : integer := 8;     -- Bits por píxel
+        COEFFW: integer := 8      -- Bits por coeficiente
+    );
+    port (
+        clk         : in  std_logic;
+        reset       : in  std_logic;
+        start       : in  std_logic;
+        -- Interfaz de entrada de píxeles (recibir uno por ciclo de reloj)
+        pixel_in    : in  std_logic_vector(BITS-1 downto 0);
+        -- Coeficientes precargados externamente (pueden venir de CPU o DIP switches)
+        coeff_addr  : in  integer range 0 to F-1;
+        -- Interfaz de salida
+        pixel_out   : out std_logic_vector((F*16)-1 downto 0);
+        done        : out std_logic
+        -- (Opcional) Señales de plataforma, e.g. SPI, UART, DDR, etc.
+    );
+end entity;
+
+architecture Structural of top_convolution is
+
+    -- Señales internas de interconexión
+    signal lb_line       : std_logic_vector((WIDTH*BITS)-1 downto 0);
+    signal wr_window     : std_logic_vector((K*K*BITS)-1 downto 0);
+    signal fm_coeffs     : std_logic_vector((F*K*K*COEFFW)-1 downto 0);
+    signal conv_start    : std_logic;
+    signal conv_done     : std_logic;
+    signal conv_pixel    : std_logic_vector((F*16)-1 downto 0);
+    signal ob_line       : std_logic_vector((WIDTH*16)-1 downto 0);
+    signal lb_we, wr_upd, ob_we   : std_logic;
+    signal global_done            : std_logic;
+
+begin
+
+    ------------------------------------------------------------------------
+    -- Instanciación: LineBuffer
+    ------------------------------------------------------------------------
+    u_LineBuffer: entity work.LineBuffer
+        generic map (
+            WIDTH => WIDTH,
+            BITS  => BITS
+        )
+        port map (
+            clk      => clk,
+            reset    => reset,
+            pixel_in => pixel_in,
+            write_en => lb_we,
+            line_out => lb_line
+        );
+
+    ------------------------------------------------------------------------
+    -- Instanciación: WindowRegister
+    ------------------------------------------------------------------------
+    u_WindowRegister: entity work.WindowRegister
+        generic map (
+            K    => K,
+            BITS => BITS
+        )
+        port map (
+            clk     => clk,
+            reset   => reset,
+            data_in => lb_line((BITS-1) downto 0)  -- tomar la “columna” más reciente
+            -- en la práctica necesitas extraer los K píxeles de la columna;
+            -- aquí lb_line puede conectarse a un demultiplexor o a lógica específica
+           ,window  => wr_window
+        );
+
+    ------------------------------------------------------------------------
+    -- Instanciación: FilterMemory
+    ------------------------------------------------------------------------
+    u_FilterMemory: entity work.FilterMemory
+        generic map (
+            F    => F,
+            K    => K,
+            BITS => COEFFW
+        )
+        port map (
+            clk     => clk,
+            address => coeff_addr,
+            coeffs  => fm_coeffs
+        );
+
+    ------------------------------------------------------------------------
+    -- Instanciación: ConvolutionBlock
+    ------------------------------------------------------------------------
+    u_ConvolutionBlock: entity work.ConvolutionBlock
+        generic map (
+            K      => K,
+            F      => F,
+            BITS   => BITS,
+            COEFFW => COEFFW,
+            OUTW   => 16
+        )
+        port map (
+            clk       => clk,
+            reset     => reset,
+            window_in => wr_window,
+            coeffs_in => fm_coeffs,
+            start     => conv_start,
+            done      => conv_done,
+            pixel_out => conv_pixel
+        );
+
+    ------------------------------------------------------------------------
+    -- Instanciación: OutputBuffer
+    ------------------------------------------------------------------------
+    u_OutputBuffer: entity work.OutputBuffer
+        generic map (
+            WIDTH => WIDTH,
+            BITS  => 16
+        )
+        port map (
+            clk        => clk,
+            reset      => reset,
+            write_en   => ob_we,
+            data_in    => conv_pixel(15 downto 0),  -- asumiendo un filtro; si F>1, multiplexar
+            buffer_out => ob_line
+        );
+
+    ------------------------------------------------------------------------
+    -- Instanciación: Controller (FSM)
+    ------------------------------------------------------------------------
+    u_Controller: entity work.Controller
+        port map (
+            clk        => clk,
+            reset      => reset,
+            start      => start,
+            stride     => 1,
+            padding    => 1,
+            lb_we      => lb_we,
+            wr_update  => wr_upd,
+            conv_start => conv_start,
+            conv_done  => conv_done,
+            ob_we      => ob_we,
+            finished   => global_done
+        );
+
+    -- Conectar salida final
+    pixel_out <= conv_pixel;
+    done      <= global_done;
+
+end architecture;

@@ -1,0 +1,35 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity FilterMemory is
+    generic (
+        F    : integer := 16;  -- Número de filtros
+        K    : integer := 3;   -- Tamaño del kernel KxK
+        BITS : integer := 8    -- Bits por coeficiente
+    );
+    port (
+        clk      : in  std_logic;
+        address  : in  integer range 0 to F-1;  -- Selecciona qué filtro leer
+        coeffs   : out std_logic_vector((K*K*BITS)-1 downto 0)
+    );
+end entity;
+
+architecture Behavioral of FilterMemory is
+    -- Memoria de coeficientes: para cada filtro, K*K valores
+    type mem_array is array (0 to F-1) of std_logic_vector((K*K*BITS)-1 downto 0);
+    signal mem : mem_array := (
+        0  => (others => '0'),
+        1  => (others => '0'),
+        -- … inicializar cada entrada con los coeficientes reales si se desea
+        others => (others => '0')
+    );
+begin
+    -- En cada flanco de reloj, salimos con el vector de coeficientes del filtro `address`
+    process(clk)
+    begin
+        if rising_edge(clk) then
+            coeffs <= mem(address);
+        end if;
+    end process;
+end architecture;

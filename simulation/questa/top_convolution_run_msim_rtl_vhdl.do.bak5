@@ -1,0 +1,23 @@
+transcript on
+if {[file exists rtl_work]} {
+	vdel -lib rtl_work -all
+}
+vlib rtl_work
+vmap work rtl_work
+
+vcom -93 -work work {C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/LineBuffer.vhd}
+vcom -93 -work work {C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/WindowRegister.vhd}
+vcom -93 -work work {C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/FilterMemory.vhd}
+vcom -93 -work work {C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/ConvolutionBlock.vhd}
+vcom -93 -work work {C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/OutputBuffer.vhd}
+vcom -93 -work work {C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/Controller.vhd}
+vcom -93 -work work {C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/top_convolution.vhd}
+
+vcom -93 -work work {C:/Users/Farab/Documents/Maestria/Tesis/Archivos VHDL/Try 2/Try_2_TB.vhd}
+
+vsim -t 1ps -L altera -L lpm -L sgate -L altera_mf -L altera_lnsim -L cycloneiv_hssi -L cycloneiv_pcie_hip -L cycloneiv -L rtl_work -L work -voptargs="+acc"  Try_2_TB
+
+add wave *
+view structure
+view signals
+run 10 ms

@@ -1,0 +1,20 @@
+Fitter Status : Successful - Fri Aug 22 15:20:41 2025
+Quartus Prime Version : 23.1std.1 Build 993 05/14/2024 SC Lite Edition
+Revision Name : top_convolution
+Top-level Entity Name : top_convolution
+Family : Cyclone IV GX
+Device : EP4CGX150DF31I7
+Timing Models : Final
+Total logic elements : 3,813 / 149,760 ( 3 % )
+    Total combinational functions : 3,767 / 149,760 ( 3 % )
+    Dedicated logic registers : 705 / 149,760 ( < 1 % )
+Total registers : 705
+Total pins : 322 / 508 ( 63 % )
+Total virtual pins : 0
+Total memory bits : 0 / 6,635,520 ( 0 % )
+Embedded Multiplier 9-bit elements : 12 / 720 ( 2 % )
+Total GXB Receiver Channel PCS : 0 / 8 ( 0 % )
+Total GXB Receiver Channel PMA : 0 / 8 ( 0 % )
+Total GXB Transmitter Channel PCS : 0 / 8 ( 0 % )
+Total GXB Transmitter Channel PMA : 0 / 8 ( 0 % )
+Total PLLs : 0 / 8 ( 0 % )

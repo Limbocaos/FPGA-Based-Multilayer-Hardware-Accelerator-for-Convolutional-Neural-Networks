@@ -1,0 +1,63 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity WindowRegister is
+    generic (
+        K    : integer := 3;  -- Tamaño del kernel (KxK)
+        BITS : integer := 8   -- Bits por píxel
+    );
+    port (
+        clk       : in  std_logic;
+        reset     : in  std_logic;
+        -- Recibe K nuevos píxeles cada ciclo (una nueva columna de la ventana)
+        data_in   : in  std_logic_vector((K*BITS)-1 downto 0);
+        -- Salida: toda la ventana de K*K píxeles, en orden fila por fila
+        window    : out std_logic_vector((K*K*BITS)-1 downto 0)
+    );
+end entity;
+
+architecture Behavioral of WindowRegister is
+    -- Creamos una matriz de registros para la ventana
+    type reg_array is array (0 to K-1, 0 to K-1) of std_logic_vector(BITS-1 downto 0);
+    signal regs : reg_array := (others => (others => (others => '0')));
+begin
+
+    process(clk)
+        variable pixel_col : array (0 to K-1) of std_logic_vector(BITS-1 downto 0);
+    begin
+        if rising_edge(clk) then
+            if reset = '1' then
+                -- Reiniciar todos los registros a 0
+                for i in 0 to K-1 loop
+                    for j in 0 to K-1 loop
+                        regs(i, j) <= (others => '0');
+                    end loop;
+                end loop;
+            else
+                -- Separar data_in en K píxeles verticales
+                for i in 0 to K-1 loop
+                    pixel_col(i) := data_in((i+1)*BITS-1 downto i*BITS);
+                end loop;
+
+                -- Hacer shift de cada fila hacia abajo
+                for row in K-1 downto 1 loop
+                    for col in 0 to K-1 loop
+                        regs(row, col) <= regs(row-1, col);
+                    end loop;
+                end loop;
+                -- Cargar nueva columna en la fila 0
+                for col in 0 to K-1 loop
+                    regs(0, col) <= pixel_col(col);
+                end loop;
+            end if;
+        end if;
+    end process;
+
+    -- Empaquetar la ventana completa (fila por fila)
+    window <= regs(0,0) & regs(0,1) & ... & regs(0,K-1)
+            & regs(1,0) & regs(1,1) & ... & regs(1,K-1)
+            -- … hasta regs(K-1, K-1)
+            & regs(K-1,0) & regs(K-1,1) & ... & regs(K-1,K-1);
+
+end architecture;
