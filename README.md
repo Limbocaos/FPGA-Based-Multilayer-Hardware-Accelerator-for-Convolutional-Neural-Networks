@@ -167,10 +167,10 @@ This is significant because it lets the architecture emulate common CNN boundary
 **Generics:** `WIDTH`, `HEIGHT`, `K_MAX`
 
 ![Controller block](docs/thesis-figures/fig3_14_controller.png)
-
+**Figure:** Controller block used to synchronize the convolution pipeline.
 
 ![Controller FSM](docs/thesis-figures/fig3_15_fsm.png)
-
+**Figure:** FSM used to coordinate loading, shifting, convolution, and output generation.
 
 **Main ports:**
 
@@ -199,6 +199,15 @@ The LineBuffer is the first core memory element in the input stage. Its purpose 
 
 In convolution hardware, this is essential because a K×K mask requires access to K rows at the same time. Since the image arrives in raster order, the current row is available directly, but the previous rows must be retained in memory. For that reason, a kernel of size K×K requires **K−1 LineBuffers**.
 
+![Line buffer in FPGA](docs/thesis-figures/fig2_9_line_buffer_fpga.png)
+**Figure:** Conceptual role of a line buffer in FPGA image processing.
+
+![Line buffer row selection](docs/thesis-figures/fig2_10_line_selection.png)
+**Figure:** Row selection mechanism for convolution window generation.
+
+![Line buffer operation cycle](docs/thesis-figures/fig3_6_linebuffer_cycle.png)
+**Figure:** Functional cycle of the reconfigurable line buffer.
+
 In this implementation, each LineBuffer:
 - stores `WIDTH` pixels,
 - advances one write index per valid clock,
@@ -225,6 +234,12 @@ Conceptually, this block behaves like a **sliding 2D register array**. At each u
 - a new vertical pixel column is inserted,
 - and any inactive positions beyond `effective_K` are cleared.
 
+![WindowRegister concept](docs/thesis-figures/fig3_7_windowregister.png)
+**Figure:** Conceptual WindowRegister structure.
+
+![Sliding convolution window](docs/thesis-figures/fig2_8_sliding_mask.png)
+**Figure:** Sliding convolution mask over the input image.
+
 This behavior matches the thesis description of **extracción de máscara de convolución**, where the system must rebuild the local convolution window in real time while preserving the correct spatial order of pixels.
 
 An important design detail is that the code separates the functionality into two parts:
@@ -249,6 +264,9 @@ The thesis describes this module as part of the hardware support needed to turn 
 - testing different filters,
 - processing multiple CNN layers,
 - and reusing the same hardware for different experiments.
+
+![FilterMemory block](docs/thesis-figures/fig3_8_filtermemory.png)
+**Figure:** FilterMemory organization for runtime loading of convolution coefficients.
 
 The implementation stores up to `F_MAX` filters, each with up to `K_MAX²` coefficients. The active configuration is controlled through:
 - `effective_F`, the number of active filters,
@@ -280,6 +298,15 @@ The thesis explains this block in three conceptual stages:
 
 That structure is reflected directly in the VHDL code.
 
+![Convolution block](docs/thesis-figures/fig3_9_convolution_block.png)
+**Figure:** General convolution block.
+
+![Filter element multiplications](docs/thesis-figures/fig3_10_filter_multiplication.png)
+**Figure:** Parallel multiplication across filter elements.
+
+![Multipliable elements per filter](docs/thesis-figures/fig3_11_elements_per_filter.png)
+**Figure:** Arithmetic workload per filter.
+
 #### Internal operation
 
 The implementation can be interpreted as four logical phases:
@@ -298,6 +325,15 @@ The implementation can be interpreted as four logical phases:
 
 4. **Packing phase**
    - `output_proc` repacks the filter sums into the `pixel_out` vector.
+   - 
+![Sequential sum diagram](docs/thesis-figures/fig3_12_sequential_sum.png)
+**Figure:** Sequential accumulation reference.
+
+![Adder tree](docs/thesis-figures/fig3_13_adder_tree.png)
+**Figure:** Adder-tree accumulation used to reduce reduction depth.
+
+![MAC array](docs/thesis-figures/fig3_17_mac_array.png)
+**Figure:** MAC array used in the convolution core.
 
 #### Why the adder tree matters
 
@@ -323,6 +359,9 @@ This module therefore captures the main optimization idea of the thesis: exploit
 
 This module implements the optional post-convolution activation stage. In the thesis, the selected activation is **ReLU (Rectified Linear Unit)**, one of the most common nonlinear functions used in CNNs.
 
+![Activation block](docs/thesis-figures/fig3_21_activation_block.png)
+**Figure:** ReLU activation block integrated into the multicore / multilayer architectur
+
 The supported modes are:
 
 | `type_sel` | Function |
@@ -341,6 +380,9 @@ This module is particularly important in the thesis because it shows the transit
 **File:** `OutputBuffer-8.vhd`
 
 The OutputBuffer stores one output row and can be used as the output staging memory of the convolution pipeline. It writes one result pixel at a time and raises `data_valid` when a full row has been completed.
+
+![Output buffer](docs/thesis-figures/fig3_16_output_buffer.png)
+**Figure:** Output buffer structure for result staging and possible memory interfacing.
 
 In the current top-level version, this module is present in the project but commented out in the structural interconnection. Instead, `data_valid` is directly driven from the controller write timing. Even so, the module remains valuable because the thesis considers it part of the general accelerator architecture and its use becomes relevant for future extensions involving larger output handling or memory-connected processing chains.
 
@@ -420,6 +462,18 @@ The testbench is a major part of the workflow because it bridges the gap between
 - and image pixels,
 then feeds them to the accelerator in sequence.
 
+![Testbench structure](docs/thesis-figures/fig4_1_testbench.png)
+**Figure:** Testbench structure used for simulation.
+
+![QuestaSim waveform](docs/thesis-figures/fig4_2_waveform.png)
+**Figure:** Example waveform captured in QuestaSim.
+
+![Netlist viewer](docs/thesis-figures/fig4_3_netlist.png)
+**Figure:** Synthesized or elaborated netlist view.
+
+![Input output text data](docs/thesis-figures/fig4_4_io_text.png)
+**Figure:** Text-file based input/output flow used during simulation.
+
 This matches the thesis methodology, where the image is first preprocessed in software and then injected into the VHDL design as binary fixed-point data.
 
 ### Input preparation flow
@@ -452,6 +506,21 @@ stride=1
 padding=0
 activation=1
 ```
+
+### Simulation results examples
+To validate the proposed architecture, extensive simulations were conducted using QuestaSim and Quartus software. The following results demonstrate the correct functionality, timing behavior, and overall performance of the design under various operating conditions, confirming the effectiveness and reliability of the implemented architecture.
+
+![Input image example](docs/thesis-figures/fig4_5_input_image.png)
+**Figure:**input image example
+![MATLAB result](docs/thesis-figures/fig4_7_matlab_result.png)
+**Figure:**Matlab result image
+![Architecture result case 1](docs/thesis-figures/fig4_8_case1_result.png)
+**Figure:**Architecture result case 1
+![Architecture result case 2](docs/thesis-figures/fig4_9_case2_result.png)
+**Figure:**Architecture result case 2
+![Edge detector result](docs/thesis-figures/fig4_10_edge_result.png)
+**Figure:**Edge detector result image
+
 
 ### Multi-layer operation
 
