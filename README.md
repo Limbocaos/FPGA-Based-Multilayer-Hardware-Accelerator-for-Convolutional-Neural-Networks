@@ -1,123 +1,277 @@
-# FPGA CNN Convolution Accelerator
+# 🧠 FPGA Convolution Engine — VHDL Implementation
 
-Hardware-reconfigurable VHDL architecture for efficient convolution processing in CNNs, developed as a master's thesis project focused on filter-level and operation-level parallelism in FPGA implementations.[1][2][3]
+A fully generic, multi-layer 2D convolution accelerator implemented in VHDL, designed for FPGA deployment in CNN (Convolutional Neural Network) inference pipelines. The architecture supports configurable kernel sizes, multiple filters, stride, padding, and ReLU activation — all runtime-configurable without resynthesis.
 
-## Project context
+***
 
-This repository contains the implementation associated with the thesis **"Procesamiento eficiente de redes neuronales de convolución a través de aceleradores hardware"**, presented at Tecnológico Nacional de México en Celaya in August 2025.[1] The work proposes an FPGA-based accelerator for convolution layers, with emphasis on reducing processing time while balancing hardware resource usage through configurable parallelism.[1]
+## 📖 Table of Contents
 
-The thesis frames convolution as the dominant computational load in CNNs and motivates FPGA use because it allows hardware exploration with lower cost, lower energy, and acceptable development time compared with alternatives such as CPU, GPU, or ASIC solutions.[1] The main hypothesis is that a reconfigurable FPGA accelerator with adjustable parallelism and multicapa support can reduce convolution processing time while improving resource reuse.[1]
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Module Descriptions](#module-descriptions)
+  - [top\_convolution](#top_convolution-top-level)
+  - [Controller](#controller-fsm)
+  - [LineBuffer](#linebuffer)
+  - [WindowRegister](#windowregister)
+  - [FilterMemory](#filtermemory)
+  - [ConvolutionBlock](#convolutionblock)
+  - [ActivationFunction](#activationfunction)
+  - [OutputBuffer](#outputbuffer)
+- [Generic Parameters](#generic-parameters)
+- [Port Interfaces](#port-interfaces)
+- [Supported Filter Types](#supported-filter-types)
+- [Simulation & Testbench](#simulation--testbench)
+- [File Structure](#file-structure)
+- [How to Run](#how-to-run)
+- [Design Notes](#design-notes)
 
-## Main contribution
+***
 
-The project implements a modular streaming convolution architecture in VHDL that processes one input pixel per clock cycle and supports runtime reconfiguration of kernel size, number of filters, stride, padding, and activation mode.[1][2] The architecture is structured around Line Buffers, a Window Register, Filter Memory, a Convolution Block, a Controller FSM, and an activation stage, matching the thesis methodology and the source files in this repository.[1][2][4][5][6]
+## Overview
 
-Two kinds of parallelism are central to the thesis and to this codebase:[1]
-- **Filter parallelism**: several filters can be processed in parallel through the `effective_F` path and packed outputs.[1][2][3]
-- **Operation parallelism**: the multiply-accumulate operations inside each convolution are parallelized using a matrix of products and an adder-tree strategy.[1][3]
+This project implements a **hardware 2D convolution block** in VHDL, targeting digital image processing tasks on FPGA. It can process images by sliding a configurable K×K kernel across the input, applying up to F filters in parallel, and optionally applying a ReLU activation function.
 
-## Architecture overview
+Key features:
+- **Fully parametric**: kernel size (K), number of filters (F), image dimensions (WIDTH × HEIGHT), and bit widths are all generic.
+- **Runtime-configurable**: `effective_K`, `effective_F`, `stride`, `padding`, and `activation_type` are input ports — no re-synthesis required between layers.
+- **Multi-layer support**: the testbench drives sequential layers by reloading weights and feeding the previous layer's output as the next layer's input.
+- **Parallel computation**: the ConvolutionBlock uses a logarithmic adder-tree to compute all F filter sums in parallel each clock cycle.
+- **Synthesizable VHDL**: all modules use only synthesizable constructs from `ieee.std_logic_1164` and `ieee.numeric_std`.
 
-The proposed architecture is designed as a real-time streaming system for convolution over input images.[1] At the top level, `top_convolution` connects the complete datapath and control path, including dynamic parameter inputs for `effective_K`, `effective_F`, `stride_in`, `padding_in`, and `activation_type`.[2]
+***
 
+## Architecture
 
+The design follows a **structural top-level** (`top_convolution`) that instantiates and interconnects the following sub-modules:
 
-### Dataflow
+```
+pixel_in ──► [LineBuffer × (K_MAX-1)] ──► build_column
+                                              │
+                                              ▼
+                                       [WindowRegister]
+                                              │
+                           ┌──────────────────┘
+                           │         (K×K window)
+                           ▼
+         [FilterMemory] ──► [ConvolutionBlock] ──► [ActivationFunction] ──► pixel_out
+                                    ▲
+                               [Controller FSM]
+                         (generates lb_we, wr_update,
+                          conv_start, ob_we, finished)
+```
 
-1. **Input preprocessing** converts image pixels into the fixed-point format used by the hardware path.[1]
-2. **LineBuffer blocks** retain previous image rows, enabling simultaneous access to the rows required by a KxK window.[1][7]
-3. **WindowRegister** builds and updates the active convolution window from the incoming pixel column.[1][5]
-4. **FilterMemory** stores the coefficients for up to `F_MAX` filters and loads only the active subset defined by `effective_F` and `effective_K`.[1][6]
-5. **ConvolutionBlock** performs parallel multiplication and accumulation using an adder tree to reduce the accumulation latency.[1][3]
-6. **ActivationFunction** optionally applies ReLU to each filter output.[1][8]
-7. **Controller** synchronizes the full process using an FSM that manages loading, shifting, convolution start, output write, stride, and finish conditions.[1][4]
+The **Controller FSM** coordinates all control signals. It cycles through seven states:
 
-### Repository module map
-
-| File | Function |
+| State | Description |
 |---|---|
-| `top_convolution-9.vhd` | Top-level structural module connecting all blocks.[2] |
-| `Controller-4.vhd` | FSM for synchronization, stride, padding, and flow control.[4][1] |
-| `LineBuffer-7.vhd` | Stores one image row and outputs a packed line vector.[7][1] |
-| `WindowRegister-2.vhd` | Maintains the sliding KxK convolution window.[5][1] |
-| `FilterMemory-6.vhd` | Stores and reloads filter coefficients dynamically.[6][1] |
-| `ConvolutionBlock-5.vhd` | Parallel multiply-accumulate engine with adder-tree summation.[3][1] |
-| `ActivationFunction-3.vhd` | Optional ReLU activation stage.[8][1] |
-| `OutputBuffer-8.vhd` | Output line buffer for post-processing or output staging.[9][1] |
-| `Try_2_TB.vhd` | Testbench for multi-layer simulation using text-based I/O.[10][1] |
+| `IDLE` | Waits for `start = '1'` |
+| `LOAD_INITIAL` | Preloads first (K-1) lines into LineBuffers |
+| `LOAD_PIX` | Loads one full pixel row into the LineBuffers |
+| `SHIFT_WINDOW` | Asserts `wr_update` to shift WindowRegister |
+| `COMPUTE_CONV` | Asserts `conv_start`; waits for `conv_done` |
+| `WRITE_OUT` | Asserts `ob_we`; advances pixel/line counters by stride |
+| `DONE` | Asserts `finished`; returns to `IDLE` |
 
-## Hardware model
+***
 
-The architecture is parameterized at synthesis time by maximum image size, kernel size, filter count, and word widths.[2] The current top-level generics are `WIDTH`, `HEIGHT`, `K_MAX`, `F_MAX`, `BITS`, `COEFFW`, and `OUTW`.[2]
+## Module Descriptions
 
-At runtime, the design accepts dynamic configuration values for the active kernel size, number of filters, stride, padding, and activation function, which is one of the main thesis contributions because it allows reuse of the same hardware under different layer configurations without recompilation.[1][2]
+### `top_convolution` (Top Level)
 
-### Top-level generics
+**File:** `top_convolution-9.vhd`
 
-| Generic | Default value | Description |
-|---|---:|---|
-| `WIDTH` | 32 | Input image width in pixels.[2] |
-| `HEIGHT` | 32 | Input image height in pixels.[2] |
-| `K_MAX` | 5 | Maximum supported kernel dimension.[2] |
-| `F_MAX` | 5 | Maximum number of filters processed by the architecture.[2] |
-| `BITS` | 9 | Bit width for input pixels.[2] |
-| `COEFFW` | 9 | Bit width for filter coefficients.[2] |
-| `OUTW` | 18 | Bit width for each convolved output pixel.[2] |
+The structural wrapper that connects all sub-modules. It instantiates `K_MAX-1` LineBuffers using a `generate` statement, builds the pixel column combinatorially, and wires all control signals from the Controller.
 
-### Runtime configuration ports
+**Notable internal signals:**
 
-| Port | Meaning |
+| Signal | Width | Description |
+|---|---|---|
+| `line_outs` | `K_MAX × (WIDTH×BITS)` | Delayed line outputs from LineBuffers |
+| `column_to_window` | `K_MAX × BITS` | Current pixel column fed into WindowRegister |
+| `wr_window` | `K_MAX² × BITS` | Flattened K×K pixel window |
+| `fm_coeffs` | `F_MAX × K_MAX² × COEFFW` | All filter coefficients |
+| `conv_pixel` | `F_MAX × OUTW` | Raw convolution results (before activation) |
+| `activated_pixel` | `F_MAX × OUTW` | Post-activation results |
+
+***
+
+### `Controller` (FSM)
+
+**File:** `Controller-4.vhd`
+
+A synchronous FSM that drives all write-enable and control signals. It manages pixel and line counters with configurable `stride` and `padding`. The controller supports runtime adjustment of `effective_K` to handle kernels smaller than `K_MAX`.
+
+**Generics:** `WIDTH`, `HEIGHT`, `K_MAX`
+
+**Ports (key outputs):**
+
+| Port | Direction | Description |
+|---|---|---|
+| `lb_we` | out | LineBuffer write enable |
+| `wr_update` | out | WindowRegister shift trigger |
+| `conv_start` | out | Start convolution computation |
+| `conv_done` | in | Completion signal from ConvolutionBlock |
+| `ob_we` | out | OutputBuffer write enable |
+| `finished` | out | Signals end of full image processing |
+
+***
+
+### `LineBuffer`
+
+**File:** `LineBuffer-7.vhd`
+
+Stores one complete image row (WIDTH pixels × BITS bits) in a circular RAM array. On each rising edge where `write_en = '1'`, the current `pixel_in` is written and the index advances. The entire stored line is always available on `line_out` as a packed vector.
+
+**Generics:** `WIDTH` (pixels per row), `BITS` (bits per pixel)
+
+The `K_MAX-1` LineBuffer instances create an effective delay line that presents the last K rows simultaneously, enabling column extraction.
+
+***
+
+### `WindowRegister`
+
+**File:** `WindowRegister-2.vhd`
+
+Maintains a K×K sliding window as a 2D register array (`K_MAX × K_MAX`). On each `update_en` pulse, the register matrix shifts right by one column and the new pixel column from the LineBuffers is loaded into row 0. A separate combinatorial process (`flatten_window`) packs the 2D register into a flat `K_MAX²×BITS` vector.
+
+**Generics:** `K_MAX`, `BITS`
+
+**Key behavior:** Rows and columns beyond `effective_K` are zeroed out, allowing the same hardware to handle any kernel size from 1×1 to K_MAX×K_MAX.
+
+***
+
+### `FilterMemory`
+
+**File:** `FilterMemory-6.vhd`
+
+Stores up to `F_MAX` filters, each of `K_MAX × K_MAX × COEFFW` bits. When `load_en = '1'`, new coefficients are loaded from `coeffs_load` using `effective_F` and `effective_K` to fill only the relevant positions; unused entries are zeroed. The packed output `coeffs_out` is always available to the ConvolutionBlock.
+
+Supports the following filter types (loaded externally via the testbench):
+
+| Filter | Kernel |
 |---|---|
-| `effective_K` | Effective kernel size from 1 to `K_MAX`.[2] |
-| `effective_F` | Effective number of filters from 1 to `F_MAX`.[2] |
-| `stride_in` | Stride value from 1 to 4.[2] |
-| `padding_in` | Padding value from 0 to 2.[2] |
-| `activation_type` | Activation selector, where 0 is pass-through and 1 is ReLU.[2][8] |
+| Identity/Pass-through | Center = 1, rest = 0 |
+| Averaging (Box Blur) | All 1s |
+| Sobel (Edge detect H) | [−1 0 1; −2 0 2; −1 0 1] |
+| Sharpen | [0 −1 0; −1 5 −1; 0 −1 0] |
+| High-Pass | [−1 −1 −1; −1 8 −1; −1 −1 −1] |
+| Gaussian (approx.) | [1 2 1; 2 4 2; 1 2 1] |
 
-## Convolution engine details
+***
 
-The `ConvolutionBlock` is the computational core of the design.[3] It unpacks the active window and the filter coefficients, computes all products, and then reduces them using a summation tree instead of a simple sequential accumulator, which aligns with the thesis analysis of operation-level parallelism.[1][3]
+### `ConvolutionBlock`
 
-This block supports up to `P_MAX = K_MAX*K_MAX` operations per filter, and outputs up to `F_MAX` results in packed form.[3] The code explicitly distinguishes between the maximum static hardware dimensions and the active runtime dimensions using `effective_K` and `effective_F`.[3]
+**File:** `ConvolutionBlock-5.vhd`
 
-### Why the adder tree matters
+Performs the multiply-accumulate operations for all F filters in parallel using a **logarithmic adder tree** (`sum_proc`) for O(log K²) latency instead of sequential O(K²) accumulation.
 
-The thesis compares sequential summation with tree-based summation and uses the adder tree as the preferred structure for reducing accumulation depth.[1] In practice, this lowers the effective reduction latency for the KxK partial products and improves the suitability of the architecture for real-time streaming designs.[1][3]
+**Pipeline stages (all clocked):**
+1. `extract_proc` — unpacks pixel window and filter coefficients into typed arrays.
+2. `mult_proc` — computes all K²×F products in parallel when `start = '1'`.
+3. `sum_proc` — sums each filter's K² products using an adder tree; asserts `done = '1'` when complete.
+4. `output_proc` — packs results into the flat `pixel_out` vector.
 
-## Input stage and sliding window generation
+**Generics:** `K_MAX`, `F_MAX`, `P_MAX` (= K_MAX²), `BITS`, `COEFFW`, `OUTW`
 
-A key part of the thesis is the input stage, because convolution in streaming hardware depends on continuously reconstructing the local neighborhood around the current pixel.[1] The design solves this with `K-1` line buffers and one window register, which together create the active KxK mask used by the convolution block.[1][7][5]
+***
 
-The `LineBuffer` stores a complete row of pixels using an internal RAM-like array and exports the full line as a packed vector.[7] The `WindowRegister` then shifts data and inserts the newest column when `update_en` is asserted, while zeroing the inactive region when `effective_K < K_MAX`.[5]
+### `ActivationFunction`
 
-## Control, stride, and padding
+**File:** `ActivationFunction-3.vhd`
 
-The Controller is implemented as a finite-state machine with the states `IDLE`, `LOAD_INITIAL`, `LOAD_PIX`, `SHIFT_WINDOW`, `COMPUTE_CONV`, `WRITE_OUT`, and `DONE`.[4] This follows the thesis description of the synchronization block and controller state machine used to coordinate the datapath.[1]
+Applies a post-convolution activation function to all F filter outputs. Selected via the `type_sel` port:
 
-Stride and padding are part of the thesis analysis because they directly affect output dimensions, processing time, and control complexity.[1] In the implementation, `stride` and `padding` influence pixel and line counters and determine when the controller advances the window or finishes the image traversal.[4]
-
-## Activation and multicapa support
-
-The thesis extends the architecture toward multicapa operation and adds a ReLU block for post-convolution activation.[1] In the code, `ActivationFunction` applies either pass-through or ReLU per active filter, zeroing inactive packed outputs beyond `effective_F`.[8]
-
-The testbench also reflects the multicapa thesis direction by iterating through several layers, loading a new configuration and set of weights for each one, and using the previous output as the next layer input.[10][1]
-
-## Simulation methodology
-
-The thesis validates the design in simulation using Quartus and QuestaSim.[1] The repository testbench `Try_2_TB.vhd` reads configuration, weights, and image data from text files, writes results to output text files, and resets the architecture between layers.[10]
-
-### Input files expected by the testbench
-
-| File | Purpose |
+| `type_sel` | Function |
 |---|---|
-| `layerN_config.txt` | Layer configuration such as kernel size, filters, stride, padding, and activation.[10][1] |
-| `pesos_layerN.txt` | Packed filter coefficients for layer `N`.[10] |
-| `G.txt` | Initial input image values for the first layer.[10] |
-| `output_layerN.txt` | Output generated after each simulated layer.[10] |
+| `0` | None (pass-through) |
+| `1` | ReLU: `max(0, x)` |
 
-### Example layer configuration
+All arithmetic is done in signed fixed-point (`signed(OUTW-1 downto 0)`). Outputs beyond `effective_F` are zeroed.
 
-```txt
+***
+
+### `OutputBuffer`
+
+**File:** `OutputBuffer-8.vhd`
+
+A circular RAM buffer that stores one output line (WIDTH × OUTW bits). When `write_en = '1'`, each result pixel is stored sequentially. When the buffer completes a full row (index wraps to 0), `data_valid` is asserted for one clock cycle. **Note:** This module is instantiated but currently bypassed in `top_convolution` — `data_valid` is driven directly from `ob_we` for simplicity; the buffer can be re-enabled for full line-buffered output.
+
+***
+
+## Generic Parameters
+
+These are set at synthesis time on `top_convolution`:
+
+| Generic | Default | Description |
+|---|---|---|
+| `WIDTH` | 32 | Image width in pixels |
+| `HEIGHT` | 32 | Image height in pixels |
+| `K_MAX` | 5 | Maximum kernel dimension (K×K) |
+| `F_MAX` | 5 | Maximum number of convolution filters |
+| `BITS` | 9 | Bits per input pixel (signed) |
+| `COEFFW` | 9 | Bits per filter coefficient (signed) |
+| `OUTW` | 18 | Bits per output pixel (accumulator width) |
+
+> **Tip:** `OUTW` should be at least `BITS + COEFFW + ceil(log2(K_MAX²))` to avoid overflow.
+
+***
+
+## Port Interfaces
+
+### `top_convolution` ports
+
+| Port | Direction | Width | Description |
+|---|---|---|---|
+| `clk` | in | 1 | System clock |
+| `reset` | in | 1 | Active-high synchronous reset |
+| `start` | in | 1 | Begin processing pulse |
+| `effective_K` | in | int [1..K_MAX] | Active kernel size |
+| `effective_F` | in | int [1..F_MAX] | Number of active filters |
+| `stride_in` | in | int [1..4] | Convolution stride |
+| `padding_in` | in | int [0..2] | Zero-padding pixels |
+| `activation_type` | in | int [0..1] | 0 = none, 1 = ReLU |
+| `coeffs_load_en` | in | 1 | Load filter coefficients |
+| `coeffs_load` | in | F_MAX×K_MAX²×COEFFW | Packed filter weights |
+| `pixel_in` | in | BITS | Input pixel (one per clock) |
+| `pixel_out` | out | F_MAX×OUTW | Output per filter (packed) |
+| `data_valid` | out | 1 | Output is valid this cycle |
+| `done` | out | 1 | Full image processed |
+
+***
+
+## Supported Filter Types
+
+Filters are loaded at runtime via `coeffs_load` / `coeffs_load_en`. Each coefficient is a signed `COEFFW`-bit value in two's complement. Example 3×3 filters:
+
+```
+Sobel Horizontal:    Gaussian Approx:    Sharpen:
+ -1  0  1            1  2  1             0 -1  0
+ -2  0  2            2  4  2            -1  5 -1
+ -1  0  1            1  2  1             0 -1  0
+```
+
+***
+
+## Simulation & Testbench
+
+**File:** `Try_2_TB.vhd`
+
+The testbench drives the DUT (`top_convolution`) for multiple sequential layers. It reads configuration, weights, and pixel data from plain-text `.txt` files.
+
+### Required `.txt` Files
+
+For each layer `N`, place the following files in `BASE_PATH`:
+
+| File | Format | Description |
+|---|---|---|
+| `layerN_config.txt` | Key=value pairs | Layer configuration |
+| `pesos_layerN.txt` | One binary vector per line | Filter coefficients |
+| `G.txt` (layer 1) | One binary vector per line | Input image pixels |
+| `output_layerN.txt` | (auto-generated) | Convolution output |
+
+### `layerN_config.txt` Format
+
+```
 K=3
 F=2
 stride=1
@@ -125,98 +279,84 @@ padding=0
 activation=1
 ```
 
-## Main results from the thesis
+### Simulation Parameters
 
-According to the thesis conclusions, the architecture was validated in Quartus and QuestaSim, and the simulated processing times were very close to the theoretical estimates.[1] One example reported is `K=3`, `F=1`, `P=9`, where the theoretical time was 0.0207 s and the simulated time was 0.0208 s at 100 MHz.[1]
-
-The thesis also reports that the optimal parallelism point was reached when `P = K²`, minimizing clock cycles and keeping times nearly constant when scaling `F` or `K`, although at the cost of more hardware resources.[1] The document cites configurations up to 784 MAC units and 103680 bits of memory for large multicapa scenarios.[1]
-
-Compared with sequential software execution, the VHDL architecture outperformed Python and MATLAB implementations in the thesis discussion, highlighting its value for real-time image processing and CNN-style convolution workloads on FPGA.[1]
-
-## Figures from the thesis to add manually
-
-The thesis contains several figures that would improve the GitHub page if exported manually from the PDF and placed in a `docs/thesis-figures/` folder.[1] The most useful ones for the repository are the following:
-
-| Suggested filename | Thesis reference | Why it is useful |
+| Constant | Value | Description |
 |---|---|---|
-| `fig-3-1-rtl-architecture.png` | Figure 3.1, complete RTL diagram.[1] | Best full-system block diagram for the repository README. |
-| `fig-3-6-linebuffer-cycle.png` | Figure 3.6, Line Buffer cycle.[1] | Helps explain the streaming input stage. |
-| `fig-3-7-windowregister.png` | Figure 3.7, WindowRegister concept.[1] | Good for showing sliding-window extraction. |
-| `fig-3-9-convolution-block.png` | Figure 3.9, convolution block.[1] | Explains the compute core. |
-| `fig-3-13-adder-tree.png` | Figure 3.13, adder tree.[1] | Important to explain the parallel reduction. |
-| `fig-3-15-controller-fsm.png` | Figure 3.15, controller FSM.[1] | Useful for the control section. |
-| `fig-3-18-multilayer-structure.png` | Figure 3.18, general multicapa structure.[1] | Good for future-work and scalability sections. |
-| `fig-4-2-questasim-waveform.png` | Figure 4.2, waveform in QuestaSim.[1] | Useful as validation evidence. |
-| `fig-4-11-clock-cycles-vs-p.png` | Figure 4.11, clock cycles used depending on `P`.[1] | Great for performance discussion. |
-| `fig-5-1-future-architecture.png` | Figure 5.1, future architecture.[1] | Good for roadmap/future work. |
+| `CLK_PERIOD` | 10 ns | 100 MHz clock |
+| `NUM_LAYERS` | 2 | Number of sequential CNN layers |
+| `WIDTH/HEIGHT` | 32 | Image dimensions |
+| `K_MAX / F_MAX` | 5 / 5 | Maximum kernel/filter count |
 
-### Suggested markdown for thesis figures
+### Waveform Signals to Monitor
 
-```md
-## Thesis figures
+- `clk`, `reset`, `start`, `done`, `data_valid`
+- `pixel_in`, `pixel_out`
+- `lb_we`, `wr_update`, `conv_start`, `conv_done`, `ob_we`
 
-### Complete RTL architecture
-![Complete RTL architecture](docs/thesis-figures/fig-3-1-rtl-architecture.png)
+***
 
-### Window extraction process
-![WindowRegister concept](docs/thesis-figures/fig-3-7-windowregister.png)
+## File Structure
 
-### Adder tree
-![Adder tree](docs/thesis-figures/fig-3-13-adder-tree.png)
+```
+project/
+├── top_convolution-9.vhd      # Top-level structural wrapper
+├── Controller-4.vhd           # FSM controller
+├── LineBuffer-7.vhd           # Single-row pixel delay buffer
+├── WindowRegister-2.vhd       # K×K sliding window register
+├── FilterMemory-6.vhd         # Loadable filter coefficient memory
+├── ConvolutionBlock-5.vhd     # MAC engine with adder tree
+├── ActivationFunction-3.vhd   # ReLU / pass-through activation
+├── OutputBuffer-8.vhd         # Output line buffer
+├── Try_2_TB.vhd               # Testbench (multi-layer simulation)
+└── Archivos txt/              # (Not included) Simulation data files
+    ├── layer1_config.txt
+    ├── pesos_layer1.txt
+    ├── G.txt
+    └── output_layer1.txt
 ```
 
-## New generated figure included here
+***
 
-This repository update includes one new clean diagram created specifically for GitHub documentation:
-- `docs/generated-architecture-overview.png`: simplified architecture overview based on the implemented VHDL modules and thesis structure.[1][2]
+## How to Run
 
-This figure is intentionally simpler than the thesis RTL diagram so it works well in GitHub's narrow README layout.[1][2]
+### In Xilinx Vivado
 
-## How to upgrade the GitHub post
+1. Create a new RTL project and add all `.vhd` files as design sources.
+2. Set `Try_2_TB.vhd` as the simulation source.
+3. Update `BASE_PATH` in the testbench to point to your `.txt` data files.
+4. Run Behavioral Simulation (`Run Simulation → Run Behavioral Simulation`).
+5. Add signals of interest to the waveform viewer and observe `pixel_out` when `data_valid = '1'`.
 
-1. Replace the current repository `README.md` with this updated version or merge the sections you prefer.[1]
-2. Create a folder named `docs/` in the repository root.[1]
-3. Put the generated architecture image in `docs/generated-architecture-overview.png`.[1]
-4. Export the recommended figures manually from the thesis PDF and place them under `docs/thesis-figures/` using the suggested filenames.[1]
-5. Commit and push the changes to GitHub so the new README renders automatically.
+### In ModelSim / Questa
 
-Example commands:
-
-```bash
-git add README.md docs/
-git commit -m "Upgrade README with thesis-based documentation"
-git push origin main
+```tcl
+vcom -work work Controller-4.vhd
+vcom -work work LineBuffer-7.vhd
+vcom -work work WindowRegister-2.vhd
+vcom -work work FilterMemory-6.vhd
+vcom -work work ConvolutionBlock-5.vhd
+vcom -work work ActivationFunction-3.vhd
+vcom -work work OutputBuffer-8.vhd
+vcom -work work top_convolution-9.vhd
+vcom -work work Try_2_TB.vhd
+vsim work.Try_2_TB
+add wave -recursive *
+run -all
 ```
 
-## Suggested repository structure
+***
 
-```txt
-.
-├── README.md
-├── top_convolution-9.vhd
-├── Controller-4.vhd
-├── LineBuffer-7.vhd
-├── WindowRegister-2.vhd
-├── FilterMemory-6.vhd
-├── ConvolutionBlock-5.vhd
-├── ActivationFunction-3.vhd
-├── OutputBuffer-8.vhd
-├── Try_2_TB.vhd
-└── docs/
-    ├── generated-architecture-overview.png
-    └── thesis-figures/
-        ├── fig-3-1-rtl-architecture.png
-        ├── fig-3-6-linebuffer-cycle.png
-        ├── fig-3-7-windowregister.png
-        ├── fig-3-9-convolution-block.png
-        ├── fig-3-13-adder-tree.png
-        ├── fig-3-15-controller-fsm.png
-        ├── fig-3-18-multilayer-structure.png
-        ├── fig-4-2-questasim-waveform.png
-        ├── fig-4-11-clock-cycles-vs-p.png
-        └── fig-5-1-future-architecture.png
-```
+## Design Notes
 
-## Future improvements
+- **Pixel data format:** Pixels and coefficients are treated as signed integers in two's complement. Ensure your input `.txt` files use binary vectors of the correct width (`BITS` and `COEFFW`).
+- **OutputBuffer bypass:** The `u_OutputBuffer` instantiation is commented out in the current top level. `data_valid` is driven directly by `ob_we` from the Controller. Uncomment and reconnect to enable full line-buffered output.
+- **Overflow:** With default `BITS=9`, `COEFFW=9`, and a 5×5 kernel, the maximum product width is 18 bits and the accumulator needs up to 23 bits for 25 products. The `OUTW=18` default may saturate for large kernels with large coefficients — adjust accordingly.
+- **Stride & Padding:** The Controller supports stride values 1–4 and padding 0–2. Padding is implemented implicitly by adjusting pixel/line counter initialization; the LineBuffers do not physically pad with zeros.
+- **Multi-layer inference:** Between layers, perform a full `reset` and reload `coeffs_load` with the new layer's weights before asserting `start` again, as shown in the testbench.
 
-The thesis proposes extending the architecture toward deeper multicapa systems with external interfaces, shared memory, pooling, and normalization blocks for more complete CNN implementations.[1] A strong next GitHub improvement would be adding a `docs/performance.md` file summarizing the thesis timing/resource tables and a `results/` folder containing waveform screenshots and input-output examples.[1]
+***
+
+## License
+
+This project is provided for academic and research purposes. Feel free to adapt and extend it for your own FPGA or CNN acceleration work.
