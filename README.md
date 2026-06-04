@@ -397,6 +397,23 @@ In the current top-level version, this module is present in the project but comm
 Functionally, this block mirrors the role of the LineBuffer, but on the output side of the datapath.
 
 ***
+## Multi-Layer Extension
+
+A major contribution of the thesis is extending the original single-layer convolution architecture into a **multi-layer reusable hardware model**. Instead of synthesizing a different design for every layer, the architecture is built around maximum supported limits and then configured layer by layer through runtime inputs and testbench-loaded parameter files.
+
+![Multilayer hardware structure](docs/thesis-figures/fig3_18_multilayer_structure.png)
+**Figure:** General multi-layer hardware organization.
+![Layer 1 resource allocation](docs/thesis-figures/fig3_19_layer1_resources.png)
+**Figure:** Resource distribution example for layer 1 in the multi-layer structure.
+![Layer 2 resource allocation](docs/thesis-figures/fig3_20_layer2_resources.png)
+**Figure:** Resource distribution example for layer 2 in the multi-layer structure.
+
+
+This is visible in both the top-level ports and the testbench behavior. Parameters such as `effectiveK`, `effectiveF`, `stridein`, `paddingin`, and `activationtype` are loaded for each layer from text files, while weights are loaded separately and input/output feature maps are chained through text outputs between iterations.
+
+The thesis explains that this strategy supports **resource reuse** across layers. The same physical hardware is reused sequentially, while only the active subset of filters, arithmetic paths, and control settings changes from one layer to another. This is a practical FPGA-oriented way to support CNN experimentation without requiring separate hardware generation for every network layer.
+
+***
 
 ## Generic Parameters
 
